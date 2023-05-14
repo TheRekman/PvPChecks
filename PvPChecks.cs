@@ -7,6 +7,7 @@ using System.Reflection;
 using Terraria;
 using TerrariaApi.Server;
 using TShockAPI;
+using TShockAPI.Configuration;
 
 namespace PvPChecks
 {
@@ -14,18 +15,22 @@ namespace PvPChecks
     public class PvPChecks : TerrariaPlugin
     {
         private string configPath = Path.Combine(TShock.SavePath, "pvpchecks.json");
-        private Config cfg;
+        private ConfigFile<Config> cfg;
 
         public override string Name => "PvPChecks";
-        public override string Author => "Johuan & Veelnyr";
+        public override string Author => "Johuan & Veelnyr & AgaSpace";
         public override string Description => "Bans weapons, buffs, accessories, projectiles and disables PvPers from using illegitimate stuff.";
-        public override Version Version => Assembly.GetExecutingAssembly().GetName().Version;
+        public override Version Version => new(1, 0, 0, 2);
+
         public PvPChecks(Main game) : base(game) { }
 
         public override void Initialize()
         {
-            cfg = Config.ReadOrCreate(configPath);
-			
+            cfg = new ConfigFile<Config>();
+            cfg.Read(configPath, out bool write);
+            if (write)
+                cfg.Write(configPath);
+
             GetDataHandlers.PlayerUpdate += OnPlayerUpdate;
             GetDataHandlers.NewProjectile += OnNewProjectile;
 			GetDataHandlers.Teleport += OnTeleport;
@@ -64,7 +69,7 @@ namespace PvPChecks
             if (player.HasPermission("pvpchecks.ignore")) return;
 
             //Check weapon
-            foreach (int weapon in cfg.weaponBans)
+            foreach (int weapon in cfg.Settings.weaponBans)
             {
                 if ((player.SelectedItem.type == weapon || player.ItemInHand.type == weapon) && args.Control.IsUsingItem)
                 {
@@ -73,6 +78,7 @@ namespace PvPChecks
                     {
                         player.SendErrorMessage("[i:{0}] {1} cannot be used in PvP. See /pvpitembans.", weapon, TShock.Utils.GetItemById(weapon).Name);
                         WarningMsgCooldown[player.Index] = DateTime.Now;
+                        player.SetPvP(false);
                     }
                     return;
                 }
@@ -81,7 +87,7 @@ namespace PvPChecks
             //Check armor
             for (int a = 0; a < 3; a++)
             {
-                foreach (int armorBan in cfg.armorBans)
+                foreach (int armorBan in cfg.Settings.armorBans)
                 {
                     if (player.TPlayer.armor[a].type == armorBan)
                     {
@@ -91,6 +97,7 @@ namespace PvPChecks
                         {
                             player.SendErrorMessage("[i:{0}] {1} cannot be used in PvP. See /pvpitembans.", armorBan, TShock.Utils.GetItemById(armorBan).Name);
                             WarningMsgCooldown[player.Index] = DateTime.Now;
+                            player.SetPvP(false);
                         }
                         return;
                     }
@@ -100,7 +107,7 @@ namespace PvPChecks
             //Check accs
             for (int a = 3; a < 10; a++)
             {
-                foreach (int accBan in cfg.accsBans)
+                foreach (int accBan in cfg.Settings.accsBans)
                 {
                     if (player.TPlayer.armor[a].type == accBan)
                     {
@@ -109,6 +116,7 @@ namespace PvPChecks
                         {
                             player.SendErrorMessage("[i:{0}] {1} cannot be used in PvP. See /pvpitembans.", accBan, TShock.Utils.GetItemById(accBan).Name);
                             WarningMsgCooldown[player.Index] = DateTime.Now;
+                            player.SetPvP(false);
                         }
                         return;
                     }
@@ -116,7 +124,7 @@ namespace PvPChecks
             }
 
             //Checks buffs
-            foreach (int buff in cfg.buffBans)
+            foreach (int buff in cfg.Settings.buffBans)
             {
                 foreach (int playerbuff in player.TPlayer.buffType)
                 {
@@ -127,6 +135,7 @@ namespace PvPChecks
                         {
                             player.SendErrorMessage(TShock.Utils.GetBuffName(playerbuff) + " cannot be used in PvP. See /pvpbuffbans.");
                             WarningMsgCooldown[player.Index] = DateTime.Now;
+                            player.SetPvP(false);
                         }
                         return;
                     }
@@ -144,6 +153,7 @@ namespace PvPChecks
                     {
                         player.SendErrorMessage("Please remove the duplicate accessory for PvP: " + equip.Name);
                         WarningMsgCooldown[player.Index] = DateTime.Now;
+                        player.SetPvP(false);
                     }
                     return;
                 }
@@ -173,11 +183,12 @@ namespace PvPChecks
             if (!player.TPlayer.hostile) return;
             if (player.HasPermission("pvpchecks.ignore")) return;
 
-            if (cfg.projBans.Contains(args.Type))
+            if (cfg.Settings.projBans.Contains(args.Type))
             {
                 player.Disable("Used banned projectile in pvp.", DisableFlags.None);
                 player.SendErrorMessage("You cannot create this projectile in PvP. See /pvpprojbans.");
-				args.Player.RemoveProjectile(args.Identity, args.Owner);
+                player.SetPvP(false);
+                args.Player.RemoveProjectile(args.Identity, args.Owner);
 				args.Handled = true;
             }
         }
@@ -190,7 +201,9 @@ namespace PvPChecks
 			args.Player.Disable("Used teleporting in pvp.", DisableFlags.None);
 			args.Player.Teleport(args.Player.TPlayer.position.X, args.Player.TPlayer.position.Y);
 			args.Player.SendErrorMessage("You can't teleport in pvp.");
-		}
+
+            args.Player.SetPvP(false);
+        }
 
         private void BanItem(CommandArgs args)
         {
@@ -213,23 +226,23 @@ namespace PvPChecks
 
                         if (i.accessory)
                         {
-                            if (!cfg.accsBans.Contains(i.type))
+                            if (!cfg.Settings.accsBans.Contains(i.type))
                             {
-                                cfg.accsBans.Add(i.type);
+                                cfg.Settings.accsBans.Add(i.type);
                             }
                         }
                         else if (i.headSlot >= 0 || i.bodySlot >= 0 || i.legSlot >= 0) //armor
                         {
-                            if (!cfg.armorBans.Contains(i.type))
+                            if (!cfg.Settings.armorBans.Contains(i.type))
                             {
-                                cfg.armorBans.Add(i.type);
+                                cfg.Settings.armorBans.Add(i.type);
                             }
                         }
                         else if (i.damage > 0 || i.type == 3384) //weapon
                         {
-                            if (!cfg.weaponBans.Contains(i.type))
+                            if (!cfg.Settings.weaponBans.Contains(i.type))
                             {
-                                cfg.weaponBans.Add(i.type);
+                                cfg.Settings.weaponBans.Add(i.type);
                             }
                         }
                         else
@@ -258,13 +271,13 @@ namespace PvPChecks
                     break;
 
                 case "del":
-                    List<Item> foundDelItems = TShock.Utils.GetItemByIdOrName(args.Parameters[1]).Where(i => (cfg.weaponBans.Contains(i.type) || cfg.accsBans.Contains(i.type) || cfg.armorBans.Contains(i.type)) && i.ammo == 0).ToList();
+                    List<Item> foundDelItems = TShock.Utils.GetItemByIdOrName(args.Parameters[1]).Where(i => (cfg.Settings.weaponBans.Contains(i.type) || cfg.Settings.accsBans.Contains(i.type) || cfg.Settings.armorBans.Contains(i.type)) && i.ammo == 0).ToList();
 
                     if (foundDelItems.Count == 1)
                     {
                         Item i = foundDelItems[0];
 
-                        if (cfg.weaponBans.Remove(i.type) || cfg.accsBans.Remove(i.type) || cfg.armorBans.Remove(i.type))
+                        if (cfg.Settings.weaponBans.Remove(i.type) || cfg.Settings.accsBans.Remove(i.type) || cfg.Settings.armorBans.Remove(i.type))
                         {
                             cfg.Write(configPath);
                             args.Player.SendSuccessMessage("Unbanned {0} in pvp.", i.Name);
@@ -330,11 +343,11 @@ namespace PvPChecks
                         addid = found[0];
                     }
 
-                    if (addid > 0 && addid < Main.maxBuffTypes)
+                    if (addid > 0 && addid < Terraria.ID.BuffID.Count)
                     {
-                        if (!cfg.buffBans.Contains(addid))
+                        if (!cfg.Settings.buffBans.Contains(addid))
                         {
-                            cfg.buffBans.Add(addid);
+                            cfg.Settings.buffBans.Add(addid);
                             cfg.Write(configPath);
                         }
                         args.Player.SendSuccessMessage("Banned {0} in pvp.", Lang.GetBuffName(addid));
@@ -349,7 +362,7 @@ namespace PvPChecks
                     int delid;
                     if (!int.TryParse(args.Parameters[1], out delid))
                     {
-                        var found = TShock.Utils.GetBuffByName(args.Parameters[1]).Where(b => cfg.buffBans.Contains(b)).ToList();
+                        var found = TShock.Utils.GetBuffByName(args.Parameters[1]).Where(b => cfg.Settings.buffBans.Contains(b)).ToList();
                         if (found.Count == 0)
                         {
                             plr.SendErrorMessage("No buffs found by that name/ID in ban list.");
@@ -370,11 +383,11 @@ namespace PvPChecks
                         delid = found[0];
                     }
 
-                    if (delid > 0 && delid < Main.maxBuffTypes)
+                    if (delid > 0 && delid < Terraria.ID.BuffID.Count)
                     {
-                        if (cfg.buffBans.Contains(delid))
+                        if (cfg.Settings.buffBans.Contains(delid))
                         {
-                            cfg.buffBans.Remove(delid);
+                            cfg.Settings.buffBans.Remove(delid);
                             cfg.Write(configPath);
                             args.Player.SendSuccessMessage("Unbanned {0} in pvp.", Lang.GetBuffName(delid));
                             break;
@@ -409,9 +422,9 @@ namespace PvPChecks
                     int addid;
                     if (int.TryParse(args.Parameters[1], out addid) && addid > 0 && addid <= 950)
                     {
-                        if (!cfg.projBans.Contains(addid))
+                        if (!cfg.Settings.projBans.Contains(addid))
                         {
-                            cfg.projBans.Add(addid);
+                            cfg.Settings.projBans.Add(addid);
                             cfg.Write(configPath);
                         }
                         args.Player.SendSuccessMessage("Banned projectile {0} in pvp.", addid);
@@ -424,9 +437,9 @@ namespace PvPChecks
                     int delid;
                     if (int.TryParse(args.Parameters[1], out delid) && delid > 0 && delid <= 950)
                     {
-                        if (cfg.projBans.Contains(delid))
+                        if (cfg.Settings.projBans.Contains(delid))
                         {
-                            cfg.projBans.Remove(delid);
+                            cfg.Settings.projBans.Remove(delid);
                             cfg.Write(configPath);
                         }
                         args.Player.SendSuccessMessage("Unbanned projectile {0} in pvp.", delid);
@@ -443,15 +456,10 @@ namespace PvPChecks
 
         private void PvPItemBans(CommandArgs args)
         {
-            List<int> bannedItemsList = new List<int>();
-            bannedItemsList.AddRange(cfg.weaponBans);
-            bannedItemsList.AddRange(cfg.armorBans);
-            bannedItemsList.AddRange(cfg.accsBans);
-
             int pageNumber;
             if (!PaginationTools.TryParsePageNumber(args.Parameters, 0, args.Player, out pageNumber))
                 return;
-            IEnumerable<string> itemNames = from itemBan in bannedItemsList
+            IEnumerable<string> itemNames = from itemBan in cfg.Settings.weaponBans.Concat(cfg.Settings.armorBans).Concat(cfg.Settings.accsBans)
                                             select TShock.Utils.GetItemById(itemBan).Name;
             PaginationTools.SendPage(args.Player, pageNumber, PaginationTools.BuildLinesFromTerms(itemNames, maxCharsPerLine: 75),
                 new PaginationTools.Settings
@@ -466,7 +474,7 @@ namespace PvPChecks
             int pageNumber;
             if (!PaginationTools.TryParsePageNumber(args.Parameters, 0, args.Player, out pageNumber))
                 return;
-            IEnumerable<string> buffNames = from buffBan in cfg.buffBans
+            IEnumerable<string> buffNames = from buffBan in cfg.Settings.buffBans
                                             select TShock.Utils.GetBuffName(buffBan);
             PaginationTools.SendPage(args.Player, pageNumber, PaginationTools.BuildLinesFromTerms(buffNames, maxCharsPerLine: 75),
                 new PaginationTools.Settings
@@ -481,7 +489,7 @@ namespace PvPChecks
             int pageNumber;
             if (!PaginationTools.TryParsePageNumber(args.Parameters, 0, args.Player, out pageNumber))
                 return;
-            PaginationTools.SendPage(args.Player, pageNumber, PaginationTools.BuildLinesFromTerms(cfg.projBans, maxCharsPerLine: 75),
+            PaginationTools.SendPage(args.Player, pageNumber, PaginationTools.BuildLinesFromTerms(cfg.Settings.projBans, maxCharsPerLine: 75),
                 new PaginationTools.Settings
                 {
                     HeaderFormat = "The following projectiles cannot be used in PvP:",
