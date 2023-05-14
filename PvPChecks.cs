@@ -420,7 +420,7 @@ namespace PvPChecks
             {
                 case "add":
                     int addid;
-                    if (int.TryParse(args.Parameters[1], out addid) && addid > 0 && addid <= 950)
+                    if (int.TryParse(args.Parameters[1], out addid) && addid > 0 && addid <= Terraria.ID.ProjectileID.Count)
                     {
                         if (!cfg.Settings.projBans.Contains(addid))
                         {
