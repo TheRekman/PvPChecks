@@ -31,6 +31,7 @@ namespace PvPChecks
             if (write)
                 cfg.Write(configPath);
 
+            GetDataHandlers.TogglePvp += OnTogglePvp;
             GetDataHandlers.PlayerUpdate += OnPlayerUpdate;
             GetDataHandlers.NewProjectile += OnNewProjectile;
 			GetDataHandlers.Teleport += OnTeleport;
@@ -50,6 +51,7 @@ namespace PvPChecks
                 GetDataHandlers.PlayerUpdate -= OnPlayerUpdate;
                 GetDataHandlers.NewProjectile -= OnNewProjectile;
 				GetDataHandlers.Teleport -= OnTeleport;
+                GetDataHandlers.TogglePvp -= OnTogglePvp;
             }
             base.Dispose(disposing);
         }
@@ -203,6 +205,18 @@ namespace PvPChecks
 			args.Player.SendErrorMessage("You can't teleport in pvp.");
 
             args.Player.SetPvP(false);
+        }
+
+        private void OnTogglePvp(object? sender, GetDataHandlers.TogglePvpEventArgs args)
+        {
+            for (int i = 0; i < Main.projectile.Length; i++)
+            {
+                if (Main.projectile[i]?.owner == args.Player.Index && Main.projectile[i].active)
+                {
+                    Main.projectile[i].active = false;
+                    NetMessage.SendData(27, -1, -1, null, i);
+                }
+            }
         }
 
         private void BanItem(CommandArgs args)
