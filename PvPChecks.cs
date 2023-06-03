@@ -96,7 +96,6 @@ namespace PvPChecks
                     if (player.TPlayer.armor[a].type == armorBan)
                     {
                         player.Disable("Used banned armor in pvp.", DisableFlags.None);
-                        Console.WriteLine("47: " + player.TPlayer.buffType.Contains(47));
                         if ((DateTime.Now - WarningMsgCooldown[player.Index]).TotalSeconds > 3)
                         {
                             player.SendErrorMessage("[i:{0}] {1} cannot be used in PvP. See /pvpitembans.", armorBan, TShock.Utils.GetItemById(armorBan).Name);
