@@ -31,10 +31,11 @@ namespace PvPChecks
             if (write)
                 cfg.Write(configPath);
 
-            GetDataHandlers.TogglePvp += OnTogglePvp;
             GetDataHandlers.PlayerUpdate += OnPlayerUpdate;
-            GetDataHandlers.NewProjectile += OnNewProjectile;
+            //GetDataHandlers.NewProjectile += OnNewProjectile;
 			GetDataHandlers.Teleport += OnTeleport;
+            GetDataHandlers.TogglePvp += OnTogglePvp;
+            GetDataHandlers.PlayerDamage += OnPlayerDamage;
 
             Commands.ChatCommands.Add(new Command(PvPItemBans, "pvpitembans"));
             Commands.ChatCommands.Add(new Command(PvPBuffBans, "pvpbuffbans"));
@@ -49,9 +50,10 @@ namespace PvPChecks
             if (disposing)
             {
                 GetDataHandlers.PlayerUpdate -= OnPlayerUpdate;
-                GetDataHandlers.NewProjectile -= OnNewProjectile;
+                //GetDataHandlers.NewProjectile -= OnNewProjectile;
 				GetDataHandlers.Teleport -= OnTeleport;
                 GetDataHandlers.TogglePvp -= OnTogglePvp;
+                GetDataHandlers.PlayerDamage -= OnPlayerDamage;
             }
             base.Dispose(disposing);
         }
@@ -71,7 +73,7 @@ namespace PvPChecks
             if (player.HasPermission("pvpchecks.ignore")) return;
 
             //Check weapon
-            foreach (int weapon in cfg.Settings.weaponBans)
+            /*foreach (int weapon in cfg.Settings.weaponBans)
             {
                 if ((player.SelectedItem.type == weapon || player.ItemInHand.type == weapon) && args.Control.IsUsingItem)
                 {
@@ -84,7 +86,7 @@ namespace PvPChecks
                     }
                     return;
                 }
-            }
+            }*/
 
             //Check armor
             for (int a = 0; a < 3; a++)
@@ -213,8 +215,32 @@ namespace PvPChecks
             {
                 if (Main.projectile[i]?.owner == args.Player.Index && Main.projectile[i].active)
                 {
+                    Main.projectile[i].type = 0;
                     Main.projectile[i].active = false;
                     NetMessage.SendData(27, -1, -1, null, i);
+                }
+            }
+        }
+
+        private void OnPlayerDamage(object? sender, GetDataHandlers.PlayerDamageEventArgs args)
+        {
+            if (args.ID != args.Player.Index && args.PlayerDeathReason != null)
+            {
+                if (args.PlayerDeathReason.SourceProjectileType.HasValue)
+                {
+                    int proj = args.PlayerDeathReason.SourceProjectileType.Value;
+                    if (cfg.Settings.projBans.Contains(proj))
+                    {
+                        args.Player.SendData(PacketTypes.PlayerHp, "", args.ID);
+                        args.Player.SendData(PacketTypes.PlayerUpdate, "", args.ID);
+                        args.Handled = true;
+                    }
+                }
+                if (cfg.Settings.weaponBans.Contains(args.PlayerDeathReason._sourceItemType))
+                {
+                    args.Player.SendData(PacketTypes.PlayerHp, "", args.ID);
+                    args.Player.SendData(PacketTypes.PlayerUpdate, "", args.ID);
+                    args.Handled = true;
                 }
             }
         }
