@@ -228,7 +228,13 @@ namespace PvPChecks
                 if (args.PlayerDeathReason.SourceProjectileType.HasValue)
                 {
                     int proj = args.PlayerDeathReason.SourceProjectileType.Value;
-                    if (cfg.Settings.projBans.Contains(proj))
+                    if (!Main.projectile[proj].active)
+                    {
+                        args.Player.SendData(PacketTypes.PlayerHp, "", args.ID);
+                        args.Player.SendData(PacketTypes.PlayerUpdate, "", args.ID);
+                        args.Handled = true;
+                    }
+                    else if (cfg.Settings.projBans.Contains(proj))
                     {
                         args.Player.SendData(PacketTypes.PlayerHp, "", args.ID);
                         args.Player.SendData(PacketTypes.PlayerUpdate, "", args.ID);
