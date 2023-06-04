@@ -228,17 +228,12 @@ namespace PvPChecks
                 if (args.PlayerDeathReason.SourceProjectileType.HasValue)
                 {
                     int proj = args.PlayerDeathReason.SourceProjectileType.Value;
-                    if (!Main.projectile[proj].active)
+                    if (cfg.Settings.projBans.Contains(proj))
                     {
                         args.Player.SendData(PacketTypes.PlayerHp, "", args.ID);
                         args.Player.SendData(PacketTypes.PlayerUpdate, "", args.ID);
                         args.Handled = true;
-                    }
-                    else if (cfg.Settings.projBans.Contains(proj))
-                    {
-                        args.Player.SendData(PacketTypes.PlayerHp, "", args.ID);
-                        args.Player.SendData(PacketTypes.PlayerUpdate, "", args.ID);
-                        args.Handled = true;
+                        args.Player.SendErrorMessage("Projectile banned in pvp");
                     }
                 }
                 if (cfg.Settings.weaponBans.Contains(args.PlayerDeathReason._sourceItemType))
@@ -246,6 +241,7 @@ namespace PvPChecks
                     args.Player.SendData(PacketTypes.PlayerHp, "", args.ID);
                     args.Player.SendData(PacketTypes.PlayerUpdate, "", args.ID);
                     args.Handled = true;
+                    args.Player.SendErrorMessage("Weapon banned in pvp");
                 }
             }
         }
