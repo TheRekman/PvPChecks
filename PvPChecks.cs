@@ -37,6 +37,8 @@ namespace PvPChecks
             GetDataHandlers.TogglePvp += OnTogglePvp;
             GetDataHandlers.PlayerDamage += OnPlayerDamage;
 
+            ServerApi.Hooks.NetSendData.Register(this, OnSendData);
+
             Commands.ChatCommands.Add(new Command(PvPItemBans, "pvpitembans"));
             Commands.ChatCommands.Add(new Command(PvPBuffBans, "pvpbuffbans"));
             Commands.ChatCommands.Add(new Command(PvPProjBans, "pvpprojbans"));
@@ -54,6 +56,8 @@ namespace PvPChecks
 				GetDataHandlers.Teleport -= OnTeleport;
                 GetDataHandlers.TogglePvp -= OnTogglePvp;
                 GetDataHandlers.PlayerDamage -= OnPlayerDamage;
+
+                ServerApi.Hooks.NetSendData.Deregister(this, OnSendData);
             }
             base.Dispose(disposing);
         }
@@ -242,6 +246,17 @@ namespace PvPChecks
                     args.Player.SendData(PacketTypes.PlayerUpdate, "", args.ID);
                     args.Handled = true;
                     args.Player.SendErrorMessage("Weapon banned in pvp");
+                }
+            }
+        }
+
+        private void OnSendData(SendDataEventArgs args)
+        {
+            if (args.MsgId == PacketTypes.PlayerAddBuff)
+            {
+                if (TShock.Players[args.number].TPlayer.hostile)
+                {
+                    args.Handled = true;
                 }
             }
         }
