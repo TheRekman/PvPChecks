@@ -20,7 +20,7 @@ namespace PvPChecks
         public override string Name => "PvPChecks";
         public override string Author => "Johuan & Veelnyr & AgaSpace";
         public override string Description => "Bans weapons, buffs, accessories, projectiles and disables PvPers from using illegitimate stuff.";
-        public override Version Version => new(1, 0, 0, 2);
+        public override Version Version => new(1, 0, 0, 3);
 
         public PvPChecks(Main game) : base(game) { }
 
@@ -32,12 +32,12 @@ namespace PvPChecks
                 cfg.Write(configPath);
 
             GetDataHandlers.PlayerUpdate += OnPlayerUpdate;
-            //GetDataHandlers.NewProjectile += OnNewProjectile;
 			GetDataHandlers.Teleport += OnTeleport;
             GetDataHandlers.TogglePvp += OnTogglePvp;
             GetDataHandlers.PlayerDamage += OnPlayerDamage;
 
             ServerApi.Hooks.NetSendData.Register(this, OnSendData);
+            ServerApi.Hooks.NetGetData.Register(this, OnGetData);
 
             Commands.ChatCommands.Add(new Command(PvPItemBans, "pvpitembans"));
             Commands.ChatCommands.Add(new Command(PvPBuffBans, "pvpbuffbans"));
@@ -52,12 +52,12 @@ namespace PvPChecks
             if (disposing)
             {
                 GetDataHandlers.PlayerUpdate -= OnPlayerUpdate;
-                //GetDataHandlers.NewProjectile -= OnNewProjectile;
 				GetDataHandlers.Teleport -= OnTeleport;
                 GetDataHandlers.TogglePvp -= OnTogglePvp;
                 GetDataHandlers.PlayerDamage -= OnPlayerDamage;
 
                 ServerApi.Hooks.NetSendData.Deregister(this, OnSendData);
+                ServerApi.Hooks.NetGetData.Deregister(this, OnGetData);
             }
             base.Dispose(disposing);
         }
@@ -73,24 +73,8 @@ namespace PvPChecks
             // I've moved the item use check to where it should be.
             if (player == null) return;
             if (!player.Active) return;
-			if (!player.TPlayer.hostile) return; // byDii 32 = IsUsingItem - bitsbyte[5]
+			if (!player.TPlayer.hostile) return;
             if (player.HasPermission("pvpchecks.ignore")) return;
-
-            //Check weapon
-            /*foreach (int weapon in cfg.Settings.weaponBans)
-            {
-                if ((player.SelectedItem.type == weapon || player.ItemInHand.type == weapon) && args.Control.IsUsingItem)
-                {
-                    player.Disable("Used banned weapon in pvp.", DisableFlags.None);
-                    if ((DateTime.Now - WarningMsgCooldown[player.Index]).TotalSeconds > 3)
-                    {
-                        player.SendErrorMessage("[i:{0}] {1} cannot be used in PvP. See /pvpitembans.", weapon, TShock.Utils.GetItemById(weapon).Name);
-                        WarningMsgCooldown[player.Index] = DateTime.Now;
-                        player.SetPvP(false);
-                    }
-                    return;
-                }
-            }*/
 
             //Check armor
             for (int a = 0; a < 3; a++)
@@ -169,35 +153,6 @@ namespace PvPChecks
                     duplicate.Add(equip.type);
                 }
             }
-			
-			// Not requiered
-            /*if (player.TPlayer.armor[9].netID != 0)
-            {
-                player.Disable("Used 7th accessory slot.", DisableFlags.None);
-                if ((DateTime.Now - WarningMsgCooldown[player.Index]).TotalSeconds > 3)
-                {
-                    player.SendErrorMessage("The 7th accessory slot cannot be used in PvP.");
-                    WarningMsgCooldown[player.Index] = DateTime.Now;
-                }
-                return;
-            }*/
-        }
-
-        private void OnNewProjectile(object sender, GetDataHandlers.NewProjectileEventArgs args)
-        {
-            TSPlayer player = TShock.Players[args.Owner];
-
-            if (!player.TPlayer.hostile) return;
-            if (player.HasPermission("pvpchecks.ignore")) return;
-
-            if (cfg.Settings.projBans.Contains(args.Type))
-            {
-                player.Disable("Used banned projectile in pvp.", DisableFlags.None);
-                player.SendErrorMessage("You cannot create this projectile in PvP. See /pvpprojbans.");
-                player.SetPvP(false);
-                args.Player.RemoveProjectile(args.Identity, args.Owner);
-				args.Handled = true;
-            }
         }
 		
 		private void OnTeleport(object sender, GetDataHandlers.TeleportEventArgs args)
@@ -258,6 +213,15 @@ namespace PvPChecks
                 {
                     args.Handled = true;
                 }
+            }
+        }
+        private void OnGetData(GetDataEventArgs args)
+        {
+            if (args.MsgID == PacketTypes.SyncLoadout)
+            {
+                TSPlayer player = TShock.Players[args.Msg.whoAmI];
+                if (player.TPlayer.hostile)
+                    player.SetPvP(false, true);
             }
         }
 
