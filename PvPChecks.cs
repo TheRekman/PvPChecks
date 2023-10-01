@@ -455,7 +455,7 @@ namespace PvPChecks
 
                 case "del":
                     int delid;
-                    if (int.TryParse(args.Parameters[1], out delid) && delid > 0 && delid <= 950)
+                    if (int.TryParse(args.Parameters[1], out delid) && delid > 0 && delid <= Terraria.ID.ProjectileID.Count)
                     {
                         if (cfg.Settings.projBans.Contains(delid))
                         {
