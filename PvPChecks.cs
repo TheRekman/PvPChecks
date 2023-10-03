@@ -207,11 +207,13 @@ namespace PvPChecks
 
         private void OnSendData(SendDataEventArgs args)
         {
-            if (args.MsgId == PacketTypes.PlayerAddBuff)
+            if (args.MsgId == PacketTypes.PlayerAddBuff) // n1: byte playerID, n2: ushort buffID, n3: int time
             {
                 if (TShock.Players[args.number].TPlayer.hostile)
                 {
-                    args.Handled = true;
+                    var buffId = args.number2;
+                    if (buffId != Terraria.ID.BuffID.Webbed)
+                        args.Handled = true;
                 }
             }
         }
